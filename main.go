@@ -1,22 +1,45 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"go/ast"
 	"io/ioutil"
 	"os"
+	"reflect"
 
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hcl/hclsyntax"
 )
 
+var (
+	verbose bool
+)
+
+func init() {
+	flag.BoolVar(&verbose, "verbose", false, "Show hcl.Range node together")
+}
+
+func usage() {
+	fmt.Fprintf(flag.CommandLine.Output(), `Usage:
+  hcldump [filename]
+
+`)
+	flag.PrintDefaults()
+}
+
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, `Usage:
-	hcldump [filename]`)
+	flag.CommandLine.Usage = usage
+	flag.Usage = usage
+
+	flag.Parse()
+	args := flag.Args()
+	if len(args) != 1 {
+		usage()
 		os.Exit(1)
 	}
-	fname := os.Args[1]
+
+	fname := args[0]
 
 	src, err := ioutil.ReadFile(fname)
 	if err != nil {
@@ -29,5 +52,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to parse: %v\n", diags.Error())
 		os.Exit(1)
 	}
-	ast.Print(nil, f)
+
+	var filter ast.FieldFilter
+	if !verbose {
+		filter = func(name string, value reflect.Value) bool {
+			if _, ok := value.Interface().(hcl.Range); ok {
+				return false
+			}
+			if _, ok := value.Interface().([]hcl.Range); ok {
+				return false
+			}
+			return true
+		}
+	}
+	if err := ast.Fprint(os.Stdout, nil, f, filter); err != nil {
+		fmt.Fprintf(os.Stderr, "print error: %v", err)
+		os.Exit(1)
+	}
 }
