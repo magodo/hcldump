@@ -4,7 +4,7 @@
 
 ## Install
 
-`$ go get github.com/magodo/hcldump`
+`$ go install github.com/magodo/hcldump@latest`
 
 ## Usage
 

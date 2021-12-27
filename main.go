@@ -13,11 +13,13 @@ import (
 )
 
 var (
-	verbose bool
+	verbose    bool
+	expression bool
 )
 
 func init() {
 	flag.BoolVar(&verbose, "verbose", false, "Show hcl.Range node together")
+	flag.BoolVar(&expression, "e", false, "Parse the HCL as an expression")
 }
 
 func usage() {
@@ -47,10 +49,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	f, diags := hclsyntax.ParseConfig(src, fname, hcl.InitialPos)
+	var (
+		root  interface{}
+		diags hcl.Diagnostics
+	)
+	if expression {
+		root, diags = hclsyntax.ParseExpression(src, fname, hcl.InitialPos)
+	} else {
+		root, diags = hclsyntax.ParseConfig(src, fname, hcl.InitialPos)
+	}
 	if len(diags) != 0 {
 		fmt.Fprintf(os.Stderr, "failed to parse: %v\n", diags.Error())
-		os.Exit(1)
+		//os.Exit(1)
 	}
 
 	var filter ast.FieldFilter
@@ -65,7 +75,7 @@ func main() {
 			return true
 		}
 	}
-	if err := ast.Fprint(os.Stdout, nil, f, filter); err != nil {
+	if err := ast.Fprint(os.Stdout, nil, root, filter); err != nil {
 		fmt.Fprintf(os.Stderr, "print error: %v", err)
 		os.Exit(1)
 	}
